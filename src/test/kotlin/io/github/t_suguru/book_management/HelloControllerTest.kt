@@ -9,8 +9,7 @@ import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.content
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 
-@SpringBootTest
-@AutoConfigureMockMvc
+@WebMvcTest(HelloController::class)
 class HelloControllerTest {
 
     @Autowired
