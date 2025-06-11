@@ -20,7 +20,7 @@ abstract class AbstractIntegrationTest {
     companion object {
         @ServiceConnection
         @JvmStatic
-        val postgresContainer: POSTGRES_CONTAINER<*> = PostgreSQLContainer("postgres:17-alpine")
+        val POSTGRES_CONTAINER: PostgreSQLContainer<*> = PostgreSQLContainer("postgres:17-alpine")
             .withDatabaseName("testdb")
             .withUsername("test")
             .withPassword("test")
@@ -30,8 +30,8 @@ abstract class AbstractIntegrationTest {
 
         init {
             // コンテナがまだ起動していない場合のみ起動
-            if (!postgresContainer.isRunning) {
-                postgresContainer.start()
+            if (!POSTGRES_CONTAINER.isRunning) {
+                POSTGRES_CONTAINER.start()
             }
         }
     }
