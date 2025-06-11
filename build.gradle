@@ -5,55 +5,126 @@ buildscript {
 }
 
 plugins {
-	id 'org.jetbrains.kotlin.jvm' version '1.9.25'
-	id 'org.jetbrains.kotlin.plugin.spring' version '1.9.25'
-	id 'org.springframework.boot' version '3.5.0'
-	id 'io.spring.dependency-management' version '1.1.7'
-	id 'org.flywaydb.flyway' version '11.9.1'
+    id 'org.jetbrains.kotlin.jvm' version '1.9.25'
+    id 'org.jetbrains.kotlin.plugin.spring' version '1.9.25'
+    id 'org.springframework.boot' version '3.5.0'
+    id 'io.spring.dependency-management' version '1.1.7'
+    id 'org.flywaydb.flyway' version '11.9.1'
+    id("org.jooq.jooq-codegen-gradle") version "3.19.23"
 }
 
 group = 'io.github.t-suguru'
 version = '0.0.1-SNAPSHOT'
 
 java {
-	toolchain {
-		languageVersion = JavaLanguageVersion.of(21)
-	}
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
 }
 
 repositories {
-	mavenCentral()
+    mavenCentral()
 }
 
 dependencies {
-	implementation 'org.springframework.boot:spring-boot-starter-jooq'
-	implementation 'org.springframework.boot:spring-boot-starter-web'
-	implementation 'com.fasterxml.jackson.module:jackson-module-kotlin'
-	implementation 'org.flywaydb:flyway-core'
-	implementation 'org.flywaydb:flyway-database-postgresql'
-	implementation 'org.jetbrains.kotlin:kotlin-reflect'
-	developmentOnly 'org.springframework.boot:spring-boot-devtools'
-	developmentOnly 'org.springframework.boot:spring-boot-docker-compose'
-	runtimeOnly 'org.postgresql:postgresql'
-	testImplementation 'org.springframework.boot:spring-boot-starter-test'
-	testImplementation 'org.jetbrains.kotlin:kotlin-test-junit5'
-	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    implementation 'org.springframework.boot:spring-boot-starter-jooq'
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'com.fasterxml.jackson.module:jackson-module-kotlin'
+    implementation 'org.flywaydb:flyway-core'
+    implementation 'org.flywaydb:flyway-database-postgresql'
+    implementation 'org.jetbrains.kotlin:kotlin-reflect'
+    developmentOnly 'org.springframework.boot:spring-boot-devtools'
+    developmentOnly 'org.springframework.boot:spring-boot-docker-compose'
+    runtimeOnly 'org.postgresql:postgresql'
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.jetbrains.kotlin:kotlin-test-junit5'
+    testImplementation 'org.springframework.boot:spring-boot-testcontainers'
+    testImplementation 'org.testcontainers:junit-jupiter'
+    testImplementation 'org.testcontainers:postgresql'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+    // JOOQコード生成時に使用するPostgreSQLドライバ
+    jooqCodegen 'org.postgresql:postgresql:42.7.4'
 }
 
 kotlin {
-	compilerOptions {
-		freeCompilerArgs.addAll '-Xjsr305=strict'
-	}
+    compilerOptions {
+        freeCompilerArgs.addAll '-Xjsr305=strict'
+    }
 }
 
 tasks.named('test') {
-	useJUnitPlatform()
+    useJUnitPlatform()
+}
+
+// JOOQコード生成の設定
+jooq {
+    version = '3.19.23'
+    executions {
+        main {
+            configuration {
+                jdbc {
+                    driver = 'org.postgresql.Driver'
+                    url = 'jdbc:postgresql://localhost:5432/bookdb'
+                    user = 'postgres'
+                    password = 'postgres'
+                }
+                generator {
+                    name = 'org.jooq.codegen.KotlinGenerator'
+                    database {
+                        name = 'org.jooq.meta.postgres.PostgresDatabase'
+                        inputSchema = 'public'
+                        includes = '.*'
+                        excludes = 'flyway_schema_history'
+                    }
+                    generate {
+                        deprecated = false
+                        records = true
+                        immutablePojos = true
+                        fluentSetters = true
+                        pojos = true
+                        daos = true
+                    }
+
+                    target {
+                        packageName = 'io.github.t_suguru.book_management.db'
+                        directory = "$projectDir/build/generated-src/jooq/main"
+                    }
+                }
+            }
+        }
+    }
+}
+
+// Flywayのマイグレーションを実行した後にJOOQコード生成を実行するタスク
+tasks.register('migrateAndGenerateJooq', Task) {
+    group = 'jooq'
+    description = 'Flywayマイグレーション後にJOOQコード生成を実行'
+    dependsOn tasks.flywayMigrate
+    finalizedBy tasks.jooqCodegen
+}
+
+// JOOQコード生成がFlywayマイグレーション後に実行されるように設定
+tasks.jooqCodegen.mustRunAfter tasks.flywayMigrate
+
+// コンパイル前にJOOQコード生成を実行するように設定
+tasks.named('compileKotlin').configure {
+    dependsOn 'jooqCodegen'
+}
+
+// 生成されたソースディレクトリをコンパイルパスに追加
+sourceSets {
+    main {
+        java {
+            srcDir "$projectDir/build/generated-src/jooq/main"
+        }
+    }
 }
 
 flyway {
     url = 'jdbc:postgresql://localhost:5432/bookdb'
     user = 'postgres'
     password = 'postgres'
-    locations = ['classpath:db/migration']
-	cleanDisabled = false
+    locations = ['filesystem:src/main/resources/db/migration']
+    cleanDisabled = false
 }

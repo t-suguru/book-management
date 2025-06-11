@@ -1,3 +1,27 @@
 spring:
-  autoconfigure:
-    exclude: org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+  application:
+    name: book-management-test
+  
+  # テスト用データベース接続設定（Testcontainers使用）
+  # DynamicPropertySourceで動的に設定されるため、デフォルト値を設定
+  datasource:
+    driver-class-name: org.postgresql.Driver
+  
+  # Flyway設定
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
+    clean-disabled: false
+  
+  # JOOQ設定
+  jooq:
+    sql-dialect: POSTGRES
+  
+  # ログレベル設定（テスト時はDEBUGで詳細確認）
+  logging:
+    level:
+      org.jooq: DEBUG
+      org.flywaydb: INFO
+      org.testcontainers: INFO
+      org.springframework.test.context.support.AnnotationConfigContextLoaderUtils: WARN

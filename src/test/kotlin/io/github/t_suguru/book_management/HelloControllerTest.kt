@@ -20,11 +20,4 @@ class HelloControllerTest {
             .andExpect(status().isOk)
             .andExpect(content().string("Hello, Spring Boot with Kotlin and Gradle Groovy DSL!"))
     }
-
-    @Test
-    fun failTestHelloEndpoint() {
-        mockMvc.perform(get("/hello"))
-            .andExpect(status().isOk)
-            .andExpect(content().string("こっちのテストはコケるはず"))
-    }
 }

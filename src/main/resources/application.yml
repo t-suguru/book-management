@@ -1,14 +1,15 @@
 spring:
   application:
     name: book-management
+  
+  # 開発ツール設定
   devtools:
-    remote:
-      restart:
-        enabled: true
+    restart:
+      enabled: true
     livereload:
       enabled: true
   
-  # データベース接続設定
+  # データベース接続設定（ローカル開発用）
   datasource:
     url: jdbc:postgresql://localhost:5432/bookdb
     username: postgres
@@ -20,7 +21,19 @@ spring:
     enabled: true
     baseline-on-migrate: true
     locations: classpath:db/migration
+    clean-disabled: false  # 開発用：データクリア可能
   
   # JOOQ設定
   jooq:
     sql-dialect: POSTGRES
+  
+  # ログ設定（開発用）
+  logging:
+    level:
+      root: INFO
+      io.github.t_suguru.book_management: DEBUG
+      org.jooq: INFO
+      org.flywaydb: INFO
+      org.springframework.web: DEBUG  # Web関連のデバッグ
+    pattern:
+      console: "%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
