@@ -4,10 +4,11 @@ import org.junit.jupiter.api.Test
 import org.springframework.boot.test.context.SpringBootTest
 
 @SpringBootTest
-class BookManagementApplicationTests {
+class BookManagementApplicationTests : AbstractIntegrationTest() {
 
 	@Test
 	fun contextLoads() {
+		// Testcontainersを使用してコンテキストが正常にロードされることを確認
 	}
 
 }
