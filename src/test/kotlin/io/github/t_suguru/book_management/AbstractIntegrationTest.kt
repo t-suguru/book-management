@@ -20,7 +20,7 @@ abstract class AbstractIntegrationTest {
     companion object {
         @ServiceConnection
         @JvmStatic
-        val postgresContainer: PostgreSQLContainer<*> = PostgreSQLContainer("postgres:17-alpine")
+        val postgresContainer: POSTGRES_CONTAINER<*> = PostgreSQLContainer("postgres:17-alpine")
             .withDatabaseName("testdb")
             .withUsername("test")
             .withPassword("test")
