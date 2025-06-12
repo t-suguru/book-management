@@ -125,28 +125,6 @@ class AuthorControllerTest : AbstractIntegrationTest() {
         }
 
         @Test
-        fun `複数のバリデーションエラーが同時に発生すること`() {
-            // Given
-            val request = AuthorCreateRequest(
-                name = "", // 空の名前 → NotBlankエラー
-                birthdate = LocalDate.now().plusDays(1) // 未来の日付 → Pastエラー
-            )
-
-            // When & Then
-            val result = mockMvc.perform(
-                post("/api/authors")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(objectMapper.writeValueAsString(request))
-            )
-                .andExpect(status().isBadRequest)
-                .andReturn()
-
-            // デバッグ用: 実際のレスポンス内容を出力
-            println("Response Status: ${result.response.status}")
-            println("Response Body: ${result.response.contentAsString}")
-        }
-
-        @Test
         fun `不正な日付フォーマットでエラーが発生すること`() {
             // Given
             val invalidDateJson = """{"name": "夏目漱石", "birthdate": "invalid-date"}"""

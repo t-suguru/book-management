@@ -4,6 +4,7 @@ import io.github.t_suguru.book_management.domain.model.Author
 import io.github.t_suguru.book_management.domain.repository.AuthorRepository
 import io.github.t_suguru.book_management.dto.AuthorCreateRequest
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
 import java.util.*
 
 /**
@@ -17,6 +18,7 @@ class AuthorService(
     /**
      * 著者を作成する
      */
+    @Transactional
     fun createAuthor(request: AuthorCreateRequest): Author {
         val author = Author(
             name = request.name,
@@ -28,6 +30,7 @@ class AuthorService(
     /**
      * 著者を更新する
      */
+    @Transactional
     fun updateAuthor(id: UUID, request: AuthorCreateRequest): Author? {
         val existingAuthor = authorRepository.findById(id) ?: return null
         
