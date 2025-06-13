@@ -36,7 +36,7 @@ class BookRepositoryImplTest : AbstractIntegrationTest() {
                 birthdate = LocalDate.of(1867, 2, 9)
             )
         )
-        
+
         val book = Book(
             title = "吾輩は猫である",
             price = 1500,
@@ -66,7 +66,7 @@ class BookRepositoryImplTest : AbstractIntegrationTest() {
                 birthdate = LocalDate.of(1892, 3, 1)
             )
         )
-        
+
         val savedBook = bookRepository.save(
             Book(
                 title = "羅生門",
@@ -109,14 +109,14 @@ class BookRepositoryImplTest : AbstractIntegrationTest() {
                 birthdate = LocalDate.of(1909, 6, 19)
             )
         )
-        
+
         val author2 = authorRepository.save(
             Author(
                 name = "川端康成",
                 birthdate = LocalDate.of(1899, 6, 14)
             )
         )
-        
+
         val savedBook = bookRepository.save(
             Book(
                 title = "人間失格",
@@ -166,14 +166,14 @@ class BookRepositoryImplTest : AbstractIntegrationTest() {
                 birthdate = LocalDate.of(1900, 1, 1)
             )
         )
-        
+
         val author2 = authorRepository.save(
             Author(
                 name = "著者2",
                 birthdate = LocalDate.of(1900, 2, 2)
             )
         )
-        
+
         val author3 = authorRepository.save(
             Author(
                 name = "著者3",
@@ -198,81 +198,5 @@ class BookRepositoryImplTest : AbstractIntegrationTest() {
         assertTrue(foundBook.authorIds.contains(author1.id))
         assertTrue(foundBook.authorIds.contains(author2.id))
         assertTrue(foundBook.authorIds.contains(author3.id))
-    }
-
-    @Test
-    fun `著者IDで書籍一覧を取得できること`() {
-        // Given - 著者と複数の書籍を作成
-        val author = authorRepository.save(
-            Author(
-                name = "宮沢賢治",
-                birthdate = LocalDate.of(1896, 8, 27)
-            )
-        )
-        
-        val anotherAuthor = authorRepository.save(
-            Author(
-                name = "別の著者",
-                birthdate = LocalDate.of(1900, 1, 1)
-            )
-        )
-
-        val book1 = bookRepository.save(
-            Book(
-                title = "銀河鉄道の夜",
-                price = 1000,
-                status = PublicationStatus.PUBLISHED,
-                authorIds = listOf(author.id!!)
-            )
-        )
-        
-        val book2 = bookRepository.save(
-            Book(
-                title = "注文の多い料理店",
-                price = 800,
-                status = PublicationStatus.PUBLISHED,
-                authorIds = listOf(author.id!!)
-            )
-        )
-        
-        // 別の著者の書籍も作成（検索結果に含まれないことを確認するため）
-        bookRepository.save(
-            Book(
-                title = "別の書籍",
-                price = 1200,
-                status = PublicationStatus.PUBLISHED,
-                authorIds = listOf(anotherAuthor.id!!)
-            )
-        )
-
-        // When
-        val foundBooks = bookRepository.findByAuthorId(author.id!!)
-
-        // Then
-        assertEquals(2, foundBooks.size)
-        
-        // 特定の書籍が含まれていることを確認
-        val foundBook1 = foundBooks.find { it.id == book1.id }
-        val foundBook2 = foundBooks.find { it.id == book2.id }
-        
-        assertNotNull(foundBook1)
-        assertNotNull(foundBook2)
-        assertEquals("銀河鉄道の夜", foundBook1!!.title)
-        assertEquals("注文の多い料理店", foundBook2!!.title)
-        
-        // 別の著者の書籍は含まれていないことを確認
-        assertFalse(foundBooks.any { it.title == "別の書籍" })
-    }
-
-    @Test
-    fun `存在しない著者IDで検索した場合空のリストが返ること`() {
-        // Given
-        val nonExistentAuthorId = UUID.randomUUID()
-
-        // When
-        val foundBooks = bookRepository.findByAuthorId(nonExistentAuthorId)
-
-        // Then
-        assertTrue(foundBooks.isEmpty())
     }
 }

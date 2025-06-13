@@ -1,6 +1,5 @@
 package io.github.t_suguru.book_management.infrastructure.repository
 
-import io.github.t_suguru.book_management.db.tables.Authors.Companion.AUTHORS
 import io.github.t_suguru.book_management.db.tables.Authorships.Companion.AUTHORSHIPS
 import io.github.t_suguru.book_management.db.tables.Books.Companion.BOOKS
 import io.github.t_suguru.book_management.domain.model.Book
@@ -102,43 +101,5 @@ class BookRepositoryImpl(
         }
 
         return book.copy(updatedAt = now)
-    }
-
-    override fun findByAuthorId(authorId: UUID): List<Book> {
-        // 著者に関連する書籍IDを取得
-        val bookIds = dsl.select(AUTHORSHIPS.BOOK_ID)
-            .from(AUTHORSHIPS)
-            .where(AUTHORSHIPS.AUTHOR_ID.eq(authorId))
-            .fetch(AUTHORSHIPS.BOOK_ID)
-            .filterNotNull()
-
-        if (bookIds.isEmpty()) {
-            return emptyList()
-        }
-
-        // 書籍情報を取得
-        val bookRecords = dsl.selectFrom(BOOKS)
-            .where(BOOKS.ID.`in`(bookIds))
-            .fetch()
-
-        // 各書籍の著者IDを取得
-        return bookRecords.map { bookRecord ->
-            val authorIds = dsl.select(AUTHORSHIPS.AUTHOR_ID)
-                .from(AUTHORSHIPS)
-                .where(AUTHORSHIPS.BOOK_ID.eq(bookRecord.id))
-                .orderBy(AUTHORSHIPS.AUTHOR_ID) // UUIDでソートして順序を統一
-                .fetch(AUTHORSHIPS.AUTHOR_ID)
-                .filterNotNull()
-
-            Book(
-                id = bookRecord.id,
-                title = bookRecord.title!!,
-                price = bookRecord.price!!,
-                status = PublicationStatus.fromId(bookRecord.statusId!!)!!,
-                authorIds = authorIds,
-                createdAt = bookRecord.createdAt,
-                updatedAt = bookRecord.updatedAt
-            )
-        }
     }
 }
