@@ -80,7 +80,7 @@ class BookServiceTest {
         val bookId = UUID.randomUUID()
         val authorId = UUID.randomUUID()
         val existingAuthor = Author(
-            id = UUID.randomUUID(),
+            id = authorId,
             name = "夏目漱石",
             birthdate = LocalDate.of(1867, 2, 9),
             createdAt = LocalDateTime.now(),

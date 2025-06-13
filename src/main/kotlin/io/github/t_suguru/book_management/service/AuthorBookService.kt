@@ -13,9 +13,9 @@ import java.util.*
 @Service
 class AuthorBookService(
     private val authorRepository: AuthorRepository,
-    private val bookRepository: BookRepository
+    private val bookRepository: BookRepository,
 ) {
-    
+
     /**
      * 著者の書籍一覧を取得する
      * 著者の存在チェックも行う
@@ -23,7 +23,7 @@ class AuthorBookService(
     fun getBooksByAuthorId(authorId: UUID): List<Book> {
         // 著者の存在確認
         val author = authorRepository.findById(authorId) ?: return emptyList()
-        
+
         // 書籍一覧を取得
         return bookRepository.findByAuthorId(authorId)
     }

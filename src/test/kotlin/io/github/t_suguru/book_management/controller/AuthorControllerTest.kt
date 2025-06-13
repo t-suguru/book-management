@@ -10,6 +10,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
@@ -267,6 +268,77 @@ class AuthorControllerTest : AbstractIntegrationTest() {
                     .content(objectMapper.writeValueAsString(invalidUpdateRequest))
             )
                 .andExpect(status().isBadRequest)
+        }
+    }
+    
+    @Nested
+    inner class GetBooksByAuthorTests {
+
+        @Test
+        fun `著者IDで書籍一覧を取得できること`() {
+            // Given - 著者を作成
+            val authorRequest = AuthorCreateRequest(
+                name = "川端康成",
+                birthdate = LocalDate.of(1899, 6, 14)
+            )
+
+            val authorResponse = mockMvc.perform(
+                post("/api/authors")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(authorRequest))
+            )
+                .andExpect(status().isCreated)
+                .andReturn()
+
+            val authorResponseBody = objectMapper.readTree(authorResponse.response.contentAsString)
+            val authorId = UUID.fromString(authorResponseBody.get("id").asText())
+
+            // 書籍を2冊作成（別のテストから独立させるため、他のAPIは使わずテストを完結させる）
+            val book1Request = mapOf(
+                "title" to "雪国",
+                "price" to 1300,
+                "status" to "PUBLISHED",
+                "authorIds" to listOf(authorId.toString())
+            )
+            
+            val book2Request = mapOf(
+                "title" to "伊豆の踊子",
+                "price" to 900,
+                "status" to "PUBLISHED",
+                "authorIds" to listOf(authorId.toString())
+            )
+
+            mockMvc.perform(
+                post("/api/books")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(book1Request))
+            ).andExpect(status().isCreated)
+
+            mockMvc.perform(
+                post("/api/books")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(book2Request))
+            ).andExpect(status().isCreated)
+
+            // When & Then
+            mockMvc.perform(get("/api/authors/{id}/books", authorId))
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$").isArray)
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[?(@.title == '雪国')]").exists())
+                .andExpect(jsonPath("$[?(@.title == '伊豆の踊子')]").exists())
+        }
+
+        @Test
+        fun `存在しない著者IDの場合空のリストが返ること`() {
+            // Given
+            val nonExistentAuthorId = UUID.randomUUID()
+
+            // When & Then
+            mockMvc.perform(get("/api/authors/{id}/books", nonExistentAuthorId))
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$").isArray)
+                .andExpect(jsonPath("$.length()").value(0))
         }
     }
 }
