@@ -8,7 +8,6 @@ import io.github.t_suguru.book_management.domain.repository.BookRepository
 import org.jooq.DSLContext
 import org.springframework.stereotype.Repository
 import org.springframework.transaction.annotation.Transactional
-import java.time.LocalDateTime
 import java.util.*
 
 /**
@@ -21,31 +20,28 @@ class BookRepositoryImpl(
 
     @Transactional
     override fun save(book: Book): Book {
-        val id = UUID.randomUUID()
-        val now = LocalDateTime.now()
-
-        // 書籍情報を保存
-        dsl.insertInto(BOOKS)
-            .set(BOOKS.ID, id)
+        // 書籍情報を保存し、挿入されたレコードを取得
+        val insertedRecord = dsl.insertInto(BOOKS)
             .set(BOOKS.TITLE, book.title)
             .set(BOOKS.PRICE, book.price)
             .set(BOOKS.STATUS_ID, book.status.id)
-            .set(BOOKS.CREATED_AT, now)
-            .set(BOOKS.UPDATED_AT, now)
-            .execute()
+            .returning()
+            .fetchOne()!!
 
         // 著者関係を保存
-        book.authorIds.forEach { authorId ->
-            dsl.insertInto(AUTHORSHIPS)
-                .set(AUTHORSHIPS.BOOK_ID, id)
-                .set(AUTHORSHIPS.AUTHOR_ID, authorId)
-                .execute()
+        if (book.authorIds.isNotEmpty()) {
+            val authorships = book.authorIds.map { authorId ->
+                dsl.insertInto(AUTHORSHIPS)
+                    .set(AUTHORSHIPS.BOOK_ID, insertedRecord.id)
+                    .set(AUTHORSHIPS.AUTHOR_ID, authorId)
+            }
+            dsl.batch(authorships).execute()
         }
 
         return book.copy(
-            id = id,
-            createdAt = now,
-            updatedAt = now
+            id = insertedRecord.id,
+            createdAt = insertedRecord.createdAt,
+            updatedAt = insertedRecord.updatedAt
         )
     }
 
@@ -59,7 +55,7 @@ class BookRepositoryImpl(
         val authorIds = dsl.select(AUTHORSHIPS.AUTHOR_ID)
             .from(AUTHORSHIPS)
             .where(AUTHORSHIPS.BOOK_ID.eq(id))
-            .orderBy(AUTHORSHIPS.AUTHOR_ID) // UUIDでソートして順序を統一
+            .orderBy(AUTHORSHIPS.AUTHOR_ID)
             .fetch(AUTHORSHIPS.AUTHOR_ID)
             .filterNotNull()
 
@@ -76,16 +72,14 @@ class BookRepositoryImpl(
 
     @Transactional
     override fun update(book: Book): Book {
-        val now = LocalDateTime.now()
-
-        // 書籍情報を更新
-        dsl.update(BOOKS)
+        // 書籍情報を更新し、更新されたレコードを取得
+        val updatedRecord = dsl.update(BOOKS)
             .set(BOOKS.TITLE, book.title)
             .set(BOOKS.PRICE, book.price)
             .set(BOOKS.STATUS_ID, book.status.id)
-            .set(BOOKS.UPDATED_AT, now)
             .where(BOOKS.ID.eq(book.id))
-            .execute()
+            .returning()
+            .fetchOne()!!
 
         // 既存の著者関係を削除
         dsl.deleteFrom(AUTHORSHIPS)
@@ -93,13 +87,15 @@ class BookRepositoryImpl(
             .execute()
 
         // 新しい著者関係を挿入
-        book.authorIds.forEach { authorId ->
-            dsl.insertInto(AUTHORSHIPS)
-                .set(AUTHORSHIPS.BOOK_ID, book.id)
-                .set(AUTHORSHIPS.AUTHOR_ID, authorId)
-                .execute()
+        if (book.authorIds.isNotEmpty()) {
+            val batch = book.authorIds.map { authorId ->
+                dsl.insertInto(AUTHORSHIPS)
+                    .set(AUTHORSHIPS.BOOK_ID, book.id)
+                    .set(AUTHORSHIPS.AUTHOR_ID, authorId)
+            }
+            dsl.batch(batch).execute()
         }
 
-        return book.copy(updatedAt = now)
+        return book.copy(updatedAt = updatedRecord.updatedAt)
     }
 }
