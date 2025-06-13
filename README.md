@@ -52,17 +52,15 @@ docker compose down -v
 # 1. PostgreSQLコンテナ起動
 docker compose up -d postgres
 
-# 2. 依存関係ダウンロード＆jOOQクラス生成
-./gradlew build
+# 2. データベースマイグレーション＆jOOQクラス生成
+./gradlew migrateAndGenerateJooq
 
-# 3. テスト実行
-./gradlew test
+# 3. アプリケーションビルド（テスト含む）
+./gradlew build
 
 # 4. 開発サーバー起動
 ./gradlew bootRun
 ```
-
-アプリケーションが起動したら、`http://localhost:8080` でアクセスできます。
 
 ## プロジェクト構成
 
@@ -107,10 +105,201 @@ src/
 
 ### 主要なGradleタスク
 ```bash
-./gradlew build                  # 全ビルド（テスト含む）
-./gradlew test                   # テスト実行
-./gradlew bootRun               # アプリケーション起動
-./gradlew jooqCodegen           # jOOQクラス生成
-./gradlew flywayMigrate         # DBマイグレーション実行
-./gradlew flywayInfo            # マイグレーション状態確認
+./gradlew build                     # 全ビルド（マイグレーション→jOOQ生成→コンパイル→テスト）
+./gradlew migrateAndGenerateJooq    # DBマイグレーション→jOOQクラス生成
+./gradlew flywayMigrate            # DBマイグレーション実行
+./gradlew jooqCodegen              # jOOQクラス生成（※マイグレーション後に実行）
+./gradlew test                     # テスト実行
+./gradlew bootRun                  # アプリケーション起動
+./gradlew flywayInfo               # マイグレーション状態確認
 ```
+
+**重要**: jOOQはデータベーススキーマからKotlinクラスを生成するため、`jooqCodegen`の前に必ず`flywayMigrate`でスキーマを作成する必要があります。`./gradlew build`を実行すると、この依存関係は自動的に解決されます。
+
+## API エンドポイント
+
+### 著者 API
+
+#### 著者作成
+```bash
+curl -X POST http://localhost:8080/api/authors \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "夏目漱石",
+    "birthdate": "1867-02-09"
+  }'
+```
+
+#### 著者更新
+```bash
+# 先に著者を作成してIDを取得後、以下のコマンドでIDを置き換えてください
+curl -X PUT http://localhost:8080/api/authors/{author-id} \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "夏目漱石（ペンネーム）",
+    "birthdate": "1867-02-09"
+  }'
+```
+
+#### 著者の書籍一覧取得
+```bash
+# 先に著者と書籍を作成してIDを取得後、以下のコマンドでIDを置き換えてください
+curl -X GET http://localhost:8080/api/authors/{author-id}/books
+```
+
+### 書籍 API
+
+#### 書籍作成
+```bash
+# 先に著者を作成してIDを取得後、以下のコマンドでauthorIdsを置き換えてください
+curl -X POST http://localhost:8080/api/books \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "吾輩は猫である",
+    "price": 1500,
+    "status": "UNPUBLISHED",
+    "authorIds": ["{author-id}"]
+  }'
+```
+
+#### 書籍更新
+```bash
+# 先に書籍を作成してIDを取得後、以下のコマンドで{book-id}と{author-id}を置き換えてください
+curl -X PUT http://localhost:8080/api/books/{book-id} \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "吾輩は猫である（改訂版）",
+    "price": 1800,
+    "status": "PUBLISHED",
+    "authorIds": ["{author-id}"]
+  }'
+```
+
+### 使用例（実際のフロー）
+
+以下は実際にデータを作成から更新まで行う例です：
+
+#### 方法1: jqを使用する場合
+```bash
+# 1. 著者を作成
+AUTHOR_RESPONSE=$(curl -s -X POST http://localhost:8080/api/authors \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "夏目漱石",
+    "birthdate": "1867-02-09"
+  }')
+
+# 著者IDを抽出（jqが必要）
+AUTHOR_ID=$(echo $AUTHOR_RESPONSE | jq -r '.id')
+
+# 2. 書籍を作成
+BOOK_RESPONSE=$(curl -s -X POST http://localhost:8080/api/books \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"title\": \"吾輩は猫である\",
+    \"price\": 1500,
+    \"status\": \"UNPUBLISHED\",
+    \"authorIds\": [\"$AUTHOR_ID\"]
+  }")
+
+# 書籍IDを抽出
+BOOK_ID=$(echo $BOOK_RESPONSE | jq -r '.id')
+
+# 3. 著者の書籍一覧を取得
+curl -X GET http://localhost:8080/api/authors/$AUTHOR_ID/books
+
+# 4. 書籍を更新（出版状況を変更）
+curl -X PUT http://localhost:8080/api/books/$BOOK_ID \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"title\": \"吾輩は猫である\",
+    \"price\": 1500,
+    \"status\": \"PUBLISHED\",
+    \"authorIds\": [\"$AUTHOR_ID\"]
+  }"
+```
+
+#### 方法2: jqなしでsedを使用する場合
+```bash
+# 1. 著者を作成
+AUTHOR_RESPONSE=$(curl -s -X POST http://localhost:8080/api/authors \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "夏目漱石",
+    "birthdate": "1867-02-09"
+  }')
+
+# 著者IDを抽出（jqなし - sedを使用）
+AUTHOR_ID=$(echo $AUTHOR_RESPONSE | sed -n 's/.*"id":"\([^"]*\)".*/\1/p')
+
+# 2. 書籍を作成
+BOOK_RESPONSE=$(curl -s -X POST http://localhost:8080/api/books \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"title\": \"吾輩は猫である\",
+    \"price\": 1500,
+    \"status\": \"UNPUBLISHED\",
+    \"authorIds\": [\"$AUTHOR_ID\"]
+  }")
+
+# 書籍IDを抽出（jqなし - sedを使用）
+BOOK_ID=$(echo $BOOK_RESPONSE | sed -n 's/.*"id":"\([^"]*\)".*/\1/p')
+
+# 3. 著者の書籍一覧を取得
+curl -X GET http://localhost:8080/api/authors/$AUTHOR_ID/books
+
+# 4. 書籍を更新（出版状況を変更）
+curl -X PUT http://localhost:8080/api/books/$BOOK_ID \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"title\": \"吾輩は猫である\",
+    \"price\": 1500,
+    \"status\": \"PUBLISHED\",
+    \"authorIds\": [\"$AUTHOR_ID\"]
+  }"
+```
+
+### エラーレスポンス例
+
+#### バリデーションエラー（400）
+```bash
+# 空の名前で著者作成を試行
+curl -X POST http://localhost:8080/api/authors \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "",
+    "birthdate": "1867-02-09"
+  }'
+```
+
+#### リソースが見つからない（404）
+```bash
+# 存在しない著者IDで更新を試行
+curl -X PUT http://localhost:8080/api/authors/00000000-0000-0000-0000-000000000000 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "存在しない著者",
+    "birthdate": "1867-02-09"
+  }'
+```
+
+#### ビジネスルール違反（400）
+```bash
+# 出版済み書籍を未出版に変更しようとする
+curl -X PUT http://localhost:8080/api/books/{published-book-id} \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "出版済み書籍",
+    "price": 1500,
+    "status": "UNPUBLISHED",
+    "authorIds": ["{author-id}"]
+  }'
+```
+
+### 出版状況の値
+
+書籍作成・更新時の`status`フィールドには以下の値を使用してください：
+- `UNPUBLISHED`: 未出版
+- `PUBLISHED`: 出版済み
+
+**注意**: 出版済み（`PUBLISHED`）の書籍を未出版（`UNPUBLISHED`）に変更することはできません。
