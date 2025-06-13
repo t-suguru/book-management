@@ -34,7 +34,7 @@ class AuthorServiceTest {
             name = "夏目漱石",
             birthdate = LocalDate.of(1867, 2, 9)
         )
-        
+
         val expectedAuthor = Author(
             id = UUID.randomUUID(),
             name = "夏目漱石",
@@ -50,10 +50,10 @@ class AuthorServiceTest {
 
         // Then
         assertEquals(expectedAuthor, result)
-        verify(exactly = 1) { 
+        verify(exactly = 1) {
             authorRepository.save(
                 match { it.name == "夏目漱石" && it.birthdate == LocalDate.of(1867, 2, 9) }
-            ) 
+            )
         }
     }
 
@@ -65,13 +65,13 @@ class AuthorServiceTest {
             name = "夏目漱石（更新後）",
             birthdate = LocalDate.of(1867, 2, 9)
         )
-        
+
         val existingAuthor = Author(
             id = authorId,
             name = "夏目漱石",
             birthdate = LocalDate.of(1867, 2, 9)
         )
-        
+
         val updatedAuthor = existingAuthor.copy(
             name = "夏目漱石（更新後）",
             updatedAt = LocalDateTime.now()

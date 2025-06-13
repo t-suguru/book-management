@@ -1,14 +1,20 @@
 package io.github.t_suguru.book_management.infrastructure.repository
 
+import io.github.t_suguru.book_management.db.tables.Authors.Companion.AUTHORS
 import io.github.t_suguru.book_management.db.tables.Authorships.Companion.AUTHORSHIPS
 import io.github.t_suguru.book_management.db.tables.Books.Companion.BOOKS
+import io.github.t_suguru.book_management.domain.model.Author
 import io.github.t_suguru.book_management.domain.model.Book
 import io.github.t_suguru.book_management.domain.model.PublicationStatus
 import io.github.t_suguru.book_management.domain.repository.BookRepository
 import org.jooq.DSLContext
+import org.jooq.impl.DSL.multiset
+import org.jooq.impl.DSL.select
 import org.springframework.stereotype.Repository
 import org.springframework.transaction.annotation.Transactional
 import java.util.*
+import io.github.t_suguru.book_management.db.tables.pojos.Authors as AuthorPojo
+import io.github.t_suguru.book_management.db.tables.pojos.Books as BookPojo
 
 /**
  * 書籍リポジトリ実装クラス
@@ -41,33 +47,46 @@ class BookRepositoryImpl(
         return book.copy(
             id = insertedRecord.id,
             createdAt = insertedRecord.createdAt,
-            updatedAt = insertedRecord.updatedAt,
-            authorIds = book.authorIds.sorted()
+            updatedAt = insertedRecord.updatedAt
         )
     }
 
     override fun findById(id: UUID): Book? {
-        // 書籍情報を取得
-        val bookRecord = dsl.selectFrom(BOOKS)
+        // multisetを使って1つのクエリで書籍と著者を取得
+        val result = dsl.select(
+            BOOKS.asterisk(),
+            // multisetで関連する著者を取得
+            multiset(
+                select(AUTHORS.asterisk())
+                    .from(AUTHORS)
+                    .join(AUTHORSHIPS).on(AUTHORS.ID.eq(AUTHORSHIPS.AUTHOR_ID))
+                    .where(AUTHORSHIPS.BOOK_ID.eq(BOOKS.ID))
+                    .orderBy(AUTHORS.NAME)
+            ).`as`("authors").convertFrom { it.into(AuthorPojo::class.java) }
+        )
+            .from(BOOKS)
             .where(BOOKS.ID.eq(id))
             .fetchOne() ?: return null
 
-        // 関連する著者IDを取得（順序を統一するためにソート）
-        val authorIds = dsl.select(AUTHORSHIPS.AUTHOR_ID)
-            .from(AUTHORSHIPS)
-            .where(AUTHORSHIPS.BOOK_ID.eq(id))
-            .orderBy(AUTHORSHIPS.AUTHOR_ID)
-            .fetch(AUTHORSHIPS.AUTHOR_ID)
-            .filterNotNull()
-
+        val bookPojo = result.into(BOOKS).into(BookPojo::class.java)
+        val authorPojos = (result.getValue("authors") as? List<*>)?.filterIsInstance<AuthorPojo>() ?: emptyList()
+        
         return Book(
-            id = bookRecord.id,
-            title = bookRecord.title!!,
-            price = bookRecord.price!!,
-            status = PublicationStatus.fromId(bookRecord.statusId!!)!!,
-            authorIds = authorIds,
-            createdAt = bookRecord.createdAt,
-            updatedAt = bookRecord.updatedAt
+            id = bookPojo.id,
+            title = bookPojo.title!!,
+            price = bookPojo.price!!,
+            status = PublicationStatus.fromId(bookPojo.statusId!!)!!,
+            authors = authorPojos.map { authorPojo ->
+                Author(
+                    id = authorPojo.id,
+                    name = authorPojo.name!!,
+                    birthdate = authorPojo.birthdate!!,
+                    createdAt = authorPojo.createdAt,
+                    updatedAt = authorPojo.updatedAt
+                )
+            },
+            createdAt = bookPojo.createdAt,
+            updatedAt = bookPojo.updatedAt
         )
     }
 
@@ -97,6 +116,49 @@ class BookRepositoryImpl(
             dsl.batch(batch).execute()
         }
 
-        return book.copy(updatedAt = updatedRecord.updatedAt).withSortedAuthorIds()
+        return book.copy(updatedAt = updatedRecord.updatedAt)
+    }
+
+    override fun findByAuthorId(authorId: UUID): List<Book> {
+        // multisetを使って1つのクエリで書籍と全著者を取得
+        val results = dsl.select(
+            BOOKS.asterisk(),
+            // 各書籍に関連する全著者をmultisetで取得
+            multiset(
+                select(AUTHORS.asterisk())
+                    .from(AUTHORS)
+                    .join(AUTHORSHIPS).on(AUTHORS.ID.eq(AUTHORSHIPS.AUTHOR_ID))
+                    .where(AUTHORSHIPS.BOOK_ID.eq(BOOKS.ID))
+                    .orderBy(AUTHORS.NAME)
+            ).`as`("authors").convertFrom { it.into(AuthorPojo::class.java) }
+        )
+            .from(BOOKS)
+            .join(AUTHORSHIPS).on(BOOKS.ID.eq(AUTHORSHIPS.BOOK_ID))
+            .where(AUTHORSHIPS.AUTHOR_ID.eq(authorId))
+            .orderBy(BOOKS.TITLE)
+            .fetch()
+
+        return results.map { result ->
+            val bookPojo = result.into(BOOKS).into(BookPojo::class.java)
+            val authorPojos = result.getValue("authors") as List<AuthorPojo>
+
+            Book(
+                id = bookPojo.id,
+                title = bookPojo.title!!,
+                price = bookPojo.price!!,
+                status = PublicationStatus.fromId(bookPojo.statusId!!)!!,
+                authors = authorPojos.map { authorPojo ->
+                    Author(
+                        id = authorPojo.id,
+                        name = authorPojo.name!!,
+                        birthdate = authorPojo.birthdate!!,
+                        createdAt = authorPojo.createdAt,
+                        updatedAt = authorPojo.updatedAt
+                    )
+                },
+                createdAt = bookPojo.createdAt,
+                updatedAt = bookPojo.updatedAt
+            )
+        }
     }
 }

@@ -203,7 +203,7 @@ class BookControllerTest : AbstractIntegrationTest() {
                     title = "羅生門",
                     price = 800,
                     status = PublicationStatus.UNPUBLISHED,
-                    authorIds = listOf(author.id!!)
+                    authors = listOf(author)
                 )
             )
 
@@ -242,7 +242,7 @@ class BookControllerTest : AbstractIntegrationTest() {
                     title = "人間失格",
                     price = 1200,
                     status = PublicationStatus.PUBLISHED,
-                    authorIds = listOf(author.id!!)
+                    authors = listOf(author)
                 )
             )
 
