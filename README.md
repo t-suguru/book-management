@@ -229,8 +229,8 @@ AUTHOR_RESPONSE=$(curl -s -X POST http://localhost:8080/api/authors \
     "birthdate": "1867-02-09"
   }')
 
-# 著者IDを抽出（jqなし - sedを使用）
-AUTHOR_ID=$(echo $AUTHOR_RESPONSE | sed -n 's/.*"id":"\([^"]*\)".*/\1/p')
+# 著者IDを抽出（JSONの先頭のidフィールドを取得）
+AUTHOR_ID=$(echo $AUTHOR_RESPONSE | sed 's/^{"id":"\([^"]*\)".*/\1/')
 
 # 2. 書籍を作成
 BOOK_RESPONSE=$(curl -s -X POST http://localhost:8080/api/books \
@@ -242,8 +242,8 @@ BOOK_RESPONSE=$(curl -s -X POST http://localhost:8080/api/books \
     \"authorIds\": [\"$AUTHOR_ID\"]
   }")
 
-# 書籍IDを抽出（jqなし - sedを使用）
-BOOK_ID=$(echo $BOOK_RESPONSE | sed -n 's/.*"id":"\([^"]*\)".*/\1/p')
+# 書籍IDを抽出（JSONの先頭のidフィールドを取得）
+BOOK_ID=$(echo $BOOK_RESPONSE | sed 's/^{"id":"\([^"]*\)".*/\1/')
 
 # 3. 著者の書籍一覧を取得
 curl -X GET http://localhost:8080/api/authors/$AUTHOR_ID/books
