@@ -41,7 +41,8 @@ class BookRepositoryImpl(
         return book.copy(
             id = insertedRecord.id,
             createdAt = insertedRecord.createdAt,
-            updatedAt = insertedRecord.updatedAt
+            updatedAt = insertedRecord.updatedAt,
+            authorIds = book.authorIds.sorted()
         )
     }
 
@@ -96,6 +97,6 @@ class BookRepositoryImpl(
             dsl.batch(batch).execute()
         }
 
-        return book.copy(updatedAt = updatedRecord.updatedAt)
+        return book.copy(updatedAt = updatedRecord.updatedAt).withSortedAuthorIds()
     }
 }
